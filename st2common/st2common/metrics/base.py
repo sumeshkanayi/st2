@@ -29,6 +29,7 @@ from st2common.util.date import get_datetime_utc_now
 LOG = logging.getLogger(__name__)
 
 PLUGIN_NAMESPACE = 'st2common.metrics.driver'
+_METRICS = None
 
 
 def format_metrics_key(action_db=None, liveaction_db=None, key=None):
@@ -93,7 +94,7 @@ class Timer(object):
     def __init__(self, key):
         check_key(key)
         self.key = key
-        self._metrics = METRICS
+        self._metrics = get_driver()
         self._start_time = None
 
     def send_time(self, key=None):
@@ -133,7 +134,7 @@ class Counter(object):
     def __init__(self, key):
         check_key(key)
         self.key = key
-        self._metrics = METRICS
+        self._metrics = get_driver()
 
     def __enter__(self):
         self._metrics.inc_counter(self.key)
@@ -157,7 +158,7 @@ class CounterWithTimer(object):
     def __init__(self, key):
         check_key(key)
         self.key = key
-        self._metrics = METRICS
+        self._metrics = get_driver()
         self._start_time = None
 
     def send_time(self, key=None):
@@ -194,7 +195,21 @@ class CounterWithTimer(object):
         return wrapper
 
 
-try:
-    METRICS = get_plugin_instance(PLUGIN_NAMESPACE, cfg.CONF.metrics.driver)()
-except (NoMatches, MultipleMatches, NoSuchOptError):
-    METRICS = BaseMetricsDriver()
+def metrics_initialize():
+    """Initialize metrics constant
+    """
+    try:
+        _METRICS = get_plugin_instance(PLUGIN_NAMESPACE, cfg.CONF.metrics.driver)()
+    except (NoMatches, MultipleMatches, NoSuchOptError):
+        _METRICS = BaseMetricsDriver()
+
+    return _METRICS
+
+
+def get_driver():
+    """Return metrics driver instance
+    """
+    if not _METRICS:
+        return metrics_initialize()
+
+    return _METRICS
